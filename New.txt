@@ -1,0 +1,125 @@
+procedure TForm1.CheckFile(PyroFileName: String);
+begin
+  if not FileExists(PyroFileName)
+          then
+            begin
+              ShowMessage('Файл пиранометрических данных не найден: ' +
+                          PyroFileName);
+              Exit;
+            end;
+end;
+
+procedure TForm1.Shift(var TimeShift: TTime);
+var s: string;
+begin
+  s := Form1.Edit2.Text;
+        if (s[1] = '+') or (s[1] = '-')
+          then
+            TimeShift := StrToTime(Copy(s,2,Length(s)))
+          else
+            TimeShift := StrToTime(Copy(s,1,Length(s)));
+        if s[1] = '-'
+          then
+            TimeShift := -TimeShift;
+end;
+
+procedure TForm1.ChallDrawGate(var vorota1_date: TDate; var TimeShift: TTime;
+                               var mas:  SortArray);
+var
+  Counter: Word;
+  i: Integer;
+  vorota1,vorota2: TTime;
+  cur_date: TDate;
+begin
+  Counter := 0; // количество интервалов, уже построенных на графике воротами
+  for i := 0 to Length(mas)-1 do
+    begin
+      cur_date := mas[i,0];
+      if (DateToStr(cur_date) = DateToStr(vorota1_date))
+        then
+          begin
+            vorota1 := mas[i,0] + TimeShift;
+            vorota2 := mas[i,1] + TimeShift;
+
+            IVorotaGraph(Counter, Form1.Series2, vorota1);
+            IVorotaGraph(Counter, Form1.Series3, vorota2);
+            Inc(Counter,1);
+          end;
+    end;
+end;
+
+procedure TForm1.Memo1MouseDown(Sender: TObject; Button: TMouseButton;
+                                Shift: TShiftState; X, Y: Integer);
+var
+  s, sdate: String;
+  i, pos1, n: integer;
+  vorota1_date: TDate;
+  PyroFileName: String;
+  mastime: TimeArray;
+  masrad: RadArray;
+  TimeShift: TTime;
+
+
+begin
+  case Radiogroup1.ItemIndex of
+
+    0:
+      begin
+        s := Form1.Memo1.Lines[Memo1.CaretPos.Y];
+        pos1 := ansipos('/', s);
+
+        for i := pos1 downto 1 do
+          if (s[i] = ' ')
+            then
+              Break;
+        n := StrToInt(Copy(s,i+1,pos1-1-i));
+
+        vorota1_date := IntMass[n-1,0];
+        PyroFileName := Form1.Edit1.Text + '\Z-пиранометр_' +
+                                FormatDateTime('ddmmyyyy',vorota1_date) + '.txt';
+
+        Form1.CheckFile(PyroFileName);
+
+        IEnter(PyroFileName, mastime, masrad);
+        IGraph(PyroFileName, mastime, masrad);
+
+        Form1.Shift(TimeShift);
+
+        Form1.Series2.Clear;
+        Form1.Series3.Clear;
+
+        Form1.ChallDrawGate(vorota1_date, TimeShift, IntMass);
+      end;
+
+    1:
+      begin
+        s := Form1.Memo1.Lines[Memo1.CaretPos.Y];
+        pos1 := ansipos('.', s) - 2;
+
+        for i := pos1 to Length(s) do
+          if (s[i] = ' ')
+            then
+              Break;
+        sdate := Copy(s,pos1,i-pos1);
+
+        for i := 0 to Length(SortMass) - 1 do
+          if (pos(sdate, DateTimeToStr(SortMass[i,0])) > 0) then
+            Break;
+        vorota1_date := SortMass[i,0];
+        PyroFileName := Form1.Edit1.Text + '\Z-пиранометр_' +
+                                FormatDateTime('ddmmyyyy',vorota1_date) + '.txt';
+
+        Form1.CheckFile(PyroFileName);
+
+        IEnter(PyroFileName, mastime, masrad);
+        IGraph(PyroFileName, mastime, masrad);
+
+        Form1.Shift(TimeShift);
+
+        Form1.Series2.Clear;
+        Form1.Series3.Clear;
+
+        Form1.ChallDrawGate(vorota1_date, TimeShift, SortMass);
+      end;
+  end;
+end;
